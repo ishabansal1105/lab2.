@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cat Information</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f9f9f9; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; background-color: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #4CAF50; text-align: center; }
+        button { background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 10px 15px; margin: 5px 0; }
+        button:hover { background-color: #45a049; }
+        input[type="number"], textarea { width: 100%; padding: 10px; border-radius: 4px; border: 1px solid #ddd; margin-bottom: 10px; }
+        label { margin-right: 15px; }
+        .undo-button { background-color: #f44336; }
+        .undo-button:hover { background-color: #e53935; }
+        .message { margin-top: 10px; padding: 10px; border-radius: 4px; background-color: #e8f5e9; color: #333; }
+        .feedback-section { margin-top: 20px; }
+        .feedback-section h2 { color: #4CAF50; }
+        .feedback-section button { background-color: #2196F3; }
+        .feedback-section button:hover { background-color: #1976D2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cat Information</h1>
+
+        <button onclick="fetchCatData()">Display All Cat Names</button><br>
+
+        <label for="health-issues-input">Health Issues: </label>
+        <input type="number" id="health-issues-input" placeholder="Enter a number"><br>
+        <button onclick="filterByHealthIssues()">Filter by Health Issues</button><br>
+
+        <button onclick="displayWeight()">Display Weight</button>
+        <label><input type="radio" name="unit" value="imperial" checked>Imperial</label>
+        <label><input type="radio" name="unit" value="metric">Metric</label><br>
+
+        <button onclick="displayIntelligence()">Display Intelligence and Friendliness</button><br>
+
+        <button onclick="calculateAverageIntelligence()">Calculate Average Intelligence</button><br>
+
+        <button onclick="calculateAverageIntelligence(true)">Calculate Avg. Intelligence for Child-Friendly Cats</button><br>
+
+        <button class="undo-button" onclick="undoAction()">Undo Last Action</button><br>
+
+        <p id="output-text" class="message"></p>
+
+        <div class="feedback-section">
+            <h2>Feedback</h2>
+            <textarea id="feedback-input" rows="5" placeholder="Please provide your feedback here..."></textarea><br>
+            <button onclick="submitFeedback()">Submit Feedback</button>
+            <p id="feedback-message" class="message"></p>
+        </div>
+    </div>
+
+    <script>
+        let catsData = [];
+        let history = [];
+
+        function fetchCatData() {
+            const jsonUrl = "https://api.thecatapi.com/v1/breeds";
+            const output = document.getElementById("output-text");
+
+            fetch(jsonUrl)
+                .then(response => response.json())
+                .then(data => {
+                    catsData = data;
+                    history.push({ action: 'fetchCatData', data: [...data] });
+                    output.innerHTML = data.map(cat => cat.name).join('<br>');
+                })
+                .catch(error => console.error('Error fetching cat data:', error));
+        }
+
+        function filterByHealthIssues() {
+            const issueNumber = parseInt(document.getElementById("health-issues-input").value, 10);
+            const output = document.getElementById("output-text");
+
+            if (isNaN(issueNumber)) {
+                output.textContent = 'Please enter a valid number.';
+                return;
+            }
+
+            const filteredCats = catsData.filter(cat => cat.health_issues === issueNumber);
+
+            if (filteredCats.length === 0) {
+                output.textContent = 'No cats found with the specified health issue.';
+                return;
+            }
+
+            output.innerHTML = filteredCats.map(cat => `Name: ${cat.name}, Health Issues: ${cat.health_issues}`).join('<br>');
+        }
+
+        function displayWeight() {
+            const unit = document.querySelector('input[name="unit"]:checked').value;
+            const output = document.getElementById("output-text");
+
+            if (catsData.length === 0) {
+                output.textContent = 'No cat data available.';
+                return;
+            }
+
+            const weightKey = unit === 'metric' ? 'metric' : 'imperial';
+            output.innerHTML = catsData.map(cat => `${cat.name}: ${cat.weight[weightKey]} ${unit === 'metric' ? 'kg' : 'lbs'}`).join('<br>');
+        }
+
+        function displayIntelligence() {
+            const output = document.getElementById("output-text");
+
+            if (catsData.length === 0) {
+                output.textContent = 'No cat data available.';
+                return;
+            }
+
+            output.innerHTML = catsData.map(cat => `Name: ${cat.name}, Intelligence: ${cat.intelligence}, Child Friendly: ${cat.child_friendly}`).join('<br>');
+        }
+
+        function calculateAverageIntelligence(childFriendlyOnly = false) {
+            const relevantCats = childFriendlyOnly 
+                ? catsData.filter(cat => cat.child_friendly > 3) 
+                : catsData;
+
+            if (relevantCats.length === 0) {
+                document.getElementById('output-text').textContent = 'No data available for the selected filter.';
+                return;
+            }
+
+            const totalIntelligence = relevantCats.reduce((sum, cat) => sum + (cat.intelligence || 0), 0);
+            const averageIntelligence = (totalIntelligence / relevantCats.length).toFixed(2);
+
+            document.getElementById('output-text').textContent = childFriendlyOnly 
+                ? `Average Intelligence for Child-Friendly Cats: ${averageIntelligence}`
+                : `Average Intelligence: ${averageIntelligence}`;
+        }
+
+        function undoAction() {
+            if (history.length === 0) {
+                document.getElementById('output-text').textContent = 'No action to undo.';
+                return;
+            }
+
+            const lastAction = history.pop();
+            catsData = lastAction.data;
+            fetchCatData();  // Re-fetch to restore the last state
+        }
+
+        function submitFeedback() {
+            const feedback = document.getElementById("feedback-input").value;
+            const feedbackMessage = document.getElementById("feedback-message");
+
+            if (feedback.trim() === '') {
+                feedbackMessage.textContent = 'Feedback cannot be empty.';
+                return;
+            }
+
+            // For now, just display a confirmation message. In a real application, you would send the feedback to a server.
+            feedbackMessage.textContent = 'Thank you for your feedback!';
+            document.getElementById("feedback-input").value = ''; // Clear the textarea
+        }
+    </script>
+</body>
+</html>
